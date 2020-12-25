@@ -1,9 +1,8 @@
-import os, torch
+import os, torch, copy
 
 from datasets import load_dataset, concatenate_datasets, load_from_disk
 
-from transformers import FunnelTokenizer, FunnelForMaskedLM, Trainer, DataCollatorForLanguageModeling, \
-    FunnelForSequenceClassification
+from transformers import FunnelTokenizer, FunnelConfig, Trainer, FunnelForSequenceClassification
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 from config import modelconfig, training_args_pt, training_args_ft, prefix
 
@@ -26,7 +25,7 @@ def compute_metrics(pred):
 tokenizer = FunnelTokenizer.from_pretrained('funnel-transformer/small')
 
 def tokenize(batch):
-    return tokenizer(batch['sentence'], padding='max_length', truncation=True, max_length=512)
+    return tokenizer(batch['sentence'], padding='max_length', truncation=True, max_length=128)
 
 dataset = load_dataset('glue','sst2')
 # dataset = concatenate_datasets([load_from_disk(cached_datasets_path + path) for path in dataset_path]).shuffle()
@@ -47,31 +46,34 @@ dataset=dataset.map(tokenize, batched=True, batch_size=512, num_proc=1)
 # dataset.remove_columns_(['label', 'idx'])
 # # dataset.set_format('torch', columns=['input_ids', 'attention_mask'])
 
-
+model2 = FunnelForSequenceClassification(config=FunnelConfig()).from_pretrained('funnel-transformer/small')
 model = FunnelForSequenceClassification(config=modelconfig)
+print(model.config.block_sizes)
+print(model2.config.block_sizes)
+ori_blocks=len(model2.config.block_sizes)
+if (torch.tensor(model.config.block_sizes) == 4).all():
+    model.funnel.embeddings = copy.deepcopy(model2.funnel.embeddings)
+    # model.funnel.encoder.attention_structure = copy.deepcopy(model2.funnel.encoder.attention_structure)
+    model.classifier = copy.deepcopy(model2.classifier)
+    for i in range(ori_blocks):
+        model.funnel.encoder._modules['blocks']._modules[str(i)] = copy.deepcopy(model2.funnel.encoder._modules['blocks']._modules[str(i)])
+    # for i in range(ori_blocks,len(model.config.block_sizes)):
+    #     model.funnel.encoder._modules['blocks']._modules[str(i)] = copy.deepcopy(model2.funnel.encoder._modules['blocks']._modules[str(ori_blocks-1)])
+else:
+    pass
 
 trainer = Trainer(
     model=model,
     args=training_args_pt,
-    train_dataset=dataset['train'],
+    train_dataset=dataset['train'],#.select(range(100)),
     eval_dataset=dataset['validation'],
     compute_metrics=compute_metrics
 )
+# trainer.evaluate()
+
 trainer.train()
 trainer.evaluate()
-result = trainer.predict(dataset['validation'])
+# result = trainer.predict(dataset['validation'])
 
 model.save_pretrained(training_args_pt.output_dir)
 torch.save(model, training_args_pt.output_dir+"torch")
-
-
-
-# train_dataset, test_dataset = load_from_disk(cached_datasets_path+dataset_path2, split=['train', 'test'])
-
-
-
-
-
-model2.save_pretrained(training_args_ft.output_dir)
-torch.save(model2, training_args_ft.output_dir+"torch")
-

@@ -6,9 +6,17 @@
         "block_repeats": [
         1,
         1,
+        1,
+        1,
+        1,
+        1,
         1
         ],
         "block_sizes": [
+        4,
+        4,
+        4,
+        4,
         4,
         4,
         4
@@ -44,7 +52,7 @@
         "do_predict": false,
         "do_train": true,
         "eval_steps": 500,
-        "evaluation_strategy": "no",
+        "evaluation_strategy": "epoch",
         "fp16": false,
         "fp16_opt_level": "O1",
         "gradient_accumulation_steps": 1,
