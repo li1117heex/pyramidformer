@@ -51,16 +51,17 @@ model = FunnelForSequenceClassification(config=modelconfig)
 print(model.config.block_sizes)
 print(model2.config.block_sizes)
 ori_blocks=len(model2.config.block_sizes)
-if (torch.tensor(model.config.block_sizes) == 4).all():
-    model.funnel.embeddings = copy.deepcopy(model2.funnel.embeddings)
-    # model.funnel.encoder.attention_structure = copy.deepcopy(model2.funnel.encoder.attention_structure)
-    model.classifier = copy.deepcopy(model2.classifier)
-    for i in range(ori_blocks):
-        model.funnel.encoder._modules['blocks']._modules[str(i)] = copy.deepcopy(model2.funnel.encoder._modules['blocks']._modules[str(i)])
-    # for i in range(ori_blocks,len(model.config.block_sizes)):
-    #     model.funnel.encoder._modules['blocks']._modules[str(i)] = copy.deepcopy(model2.funnel.encoder._modules['blocks']._modules[str(ori_blocks-1)])
-else:
-    pass
+
+model.funnel.embeddings = copy.deepcopy(model2.funnel.embeddings)
+# model.funnel.encoder.attention_structure = copy.deepcopy(model2.funnel.encoder.attention_structure)
+model.classifier = copy.deepcopy(model2.classifier)
+for i in range(ori_blocks):
+    for j in range(len(model.funnel.encoder._modules['blocks']._modules[str(i)])):
+        model.funnel.encoder._modules['blocks']._modules[str(i)]._modules[str(j)] = copy.deepcopy(model2.funnel.encoder._modules['blocks']._modules[str(i)]._modules[str(j)])
+for i in range(ori_blocks,len(model.config.block_sizes)):
+    for j in range(len(model.funnel.encoder._modules['blocks']._modules[str(i)])):
+        model.funnel.encoder._modules['blocks']._modules[str(i)]._modules[str(j)] = copy.deepcopy(model2.funnel.encoder._modules['blocks']._modules[str(ori_blocks-1)]._modules[str(j)])
+
 
 trainer = Trainer(
     model=model,
